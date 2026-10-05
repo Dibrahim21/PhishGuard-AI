@@ -1,0 +1,13 @@
+﻿node_modules/
+dist/
+*.zip
+
+.env
+.env.local
+.env.*.local
+
+backend/__pycache__/
+backend/*.db
+backend/phishing_model_backup.pkl
+
+backend/phishing_model.pkl

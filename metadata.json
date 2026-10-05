@@ -1,0 +1,1 @@
+{"name":"PhishGuard","description":"Autonomous threat intelligence and neural phishing detection SOC command center with real-time URL inspection, telemetry audit logs, and Sentinel AI assistant.","requestFramePermissions":["microphone"],"majorCapabilities":["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]}

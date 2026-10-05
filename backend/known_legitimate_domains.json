@@ -1,0 +1,127 @@
+{
+  "_comment": "Known-legitimate domain allowlist for PhishGuard AI.",
+  "_usage": "Add the registrable domain only (e.g. 'google.com'). Subdomain matching is handled automatically. Do NOT add individual subdomains here.",
+  "_last_updated": "2026-09-28",
+
+  "domains": [
+
+    "google.com",
+    "googleapis.com",
+    "googleusercontent.com",
+    "youtube.com",
+    "gmail.com",
+    "googledrive.com",
+    "google.co.in",
+    "google.co.uk",
+
+    "microsoft.com",
+    "live.com",
+    "office.com",
+    "outlook.com",
+    "azure.com",
+    "windows.com",
+    "bing.com",
+    "msn.com",
+    "microsoftonline.com",
+    "sharepoint.com",
+
+    "apple.com",
+    "icloud.com",
+
+    "amazon.com",
+    "amazonaws.com",
+    "aws.com",
+    "amazon.co.uk",
+    "amazon.in",
+
+    "github.com",
+    "githubusercontent.com",
+    "github.io",
+
+    "cloudflare.com",
+    "cloudflare.net",
+    "cloudflarestatus.com",
+
+    "mozilla.org",
+    "firefox.com",
+
+    "wikipedia.org",
+    "wikimedia.org",
+
+    "twitter.com",
+    "x.com",
+
+    "facebook.com",
+    "fb.com",
+    "instagram.com",
+    "whatsapp.com",
+    "messenger.com",
+    "meta.com",
+
+    "linkedin.com",
+    "netflix.com",
+    "paypal.com",
+    "stripe.com",
+    "shopify.com",
+    "snapchat.com",
+
+    "wordpress.com",
+    "wordpress.org",
+
+    "stackoverflow.com",
+    "stackexchange.com",
+
+    "reddit.com",
+    "twitch.tv",
+    "discord.com",
+    "discordapp.com",
+    "slack.com",
+    "dropbox.com",
+    "zoom.us",
+    "adobe.com",
+    "salesforce.com",
+    "oracle.com",
+    "ibm.com",
+    "intel.com",
+    "samsung.com",
+
+    "yahoo.com",
+    "ymail.com",
+    "aol.com",
+
+    "godaddy.com",
+    "namecheap.com",
+    "hostinger.com",
+    "digitalocean.com",
+    "heroku.com",
+    "vercel.com",
+    "netlify.com",
+    "jsdelivr.net",
+    "npmjs.com",
+    "pypi.org",
+    "docker.com",
+    "kubernetes.io",
+
+    "openai.com",
+    "anthropic.com",
+    "huggingface.co",
+
+    "arxiv.org",
+    "ieee.org",
+    "acm.org",
+    "nih.gov",
+    "cdc.gov",
+    "nasa.gov",
+    "whitehouse.gov",
+
+    "bbc.co.uk",
+    "bbc.com",
+    "cnn.com",
+    "nytimes.com",
+    "theguardian.com",
+    "reuters.com",
+    "bloomberg.com",
+    "wsj.com",
+    "forbes.com"
+  ]
+}

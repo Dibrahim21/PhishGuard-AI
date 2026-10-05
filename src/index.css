@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #0c1322;
+  --color-surface-dim: #0c1322;
+  --color-surface-bright: #323949;
+  --color-surface-container-lowest: #070e1d;
+  --color-surface-container-low: #141b2b;
+  --color-surface-container: #191f2f;
+  --color-surface-container-high: #232a3a;
+  --color-surface-container-highest: #2e3545;
+  --color-surface-variant: #2e3545;
+  --color-on-surface: #dce2f7;
+  --color-on-surface-variant: #cbc3d7;
+  --color-inverse-surface: #dce2f7;
+  --color-inverse-on-surface: #293040;
+  --color-outline: #958ea0;
+  --color-outline-variant: #494454;
+  --color-surface-tint: #d0bcff;
+  --color-primary: #d0bcff;
+  --color-on-primary: #3c0091;
+  --color-primary-container: #a078ff;
+  --color-on-primary-container: #340080;
+  --color-inverse-primary: #6d3bd7;
+  --color-secondary: #4fdbc8;
+  --color-on-secondary: #003731;
+  --color-secondary-container: #04b4a2;
+  --color-on-secondary-container: #003f38;
+  --color-tertiary: #ffb3ad;
+  --color-on-tertiary: #68000a;
+  --color-tertiary-container: #ff5451;
+  --color-on-tertiary-container: #5c0008;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-primary-fixed: #e9ddff;
+  --color-primary-fixed-dim: #d0bcff;
+  --color-on-primary-fixed: #23005c;
+  --color-on-primary-fixed-variant: #5516be;
+  --color-secondary-fixed: #71f8e4;
+  --color-secondary-fixed-dim: #4fdbc8;
+  --color-on-secondary-fixed: #00201c;
+  --color-on-secondary-fixed-variant: #005048;
+  --color-tertiary-fixed: #ffdad7;
+  --color-tertiary-fixed-dim: #ffb3ad;
+  --color-on-tertiary-fixed: #410004;
+  --color-on-tertiary-fixed-variant: #930013;
+  --color-background: #0c1322;
+  --color-on-background: #dce2f7;
+
+  --font-headline-xl: "Plus Jakarta Sans", sans-serif;
+  --font-headline-lg: "Plus Jakarta Sans", sans-serif;
+  --font-headline-md: "Plus Jakarta Sans", sans-serif;
+  --font-headline-sm: "Plus Jakarta Sans", sans-serif;
+  --font-body-lg: "Inter", sans-serif;
+  --font-body-md: "Inter", sans-serif;
+  --font-body-sm: "Inter", sans-serif;
+  --font-code-lg: "JetBrains Mono", monospace;
+  --font-code-md: "JetBrains Mono", monospace;
+  --font-label-md: "JetBrains Mono", monospace;
+  --font-label-sm: "JetBrains Mono", monospace;
+
+  --spacing-space-2xs: 0.25rem;
+  --spacing-space-xs: 0.5rem;
+  --spacing-space-sm: 0.75rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2rem;
+  --spacing-space-2xl: 3rem;
+  --spacing-space-3xl: 4rem;
+}
+
+@layer base {
+  html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #0c1322;
+    color: #dce2f7;
+    font-family: "Inter", sans-serif;
+    overscroll-behavior: none;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Custom utility classes */
+.font-headline-xl { font-family: "Plus Jakarta Sans", sans-serif; font-size: 36px; line-height: 44px; letter-spacing: -0.025em; font-weight: 700; }
+.font-headline-xl-mobile { font-family: "Plus Jakarta Sans", sans-serif; font-size: 26px; line-height: 34px; letter-spacing: -0.02em; font-weight: 700; }
+.font-headline-lg { font-family: "Plus Jakarta Sans", sans-serif; font-size: 28px; line-height: 36px; letter-spacing: -0.02em; font-weight: 600; }
+.font-headline-lg-mobile { font-family: "Plus Jakarta Sans", sans-serif; font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 700; }
+.font-headline-md { font-family: "Plus Jakarta Sans", sans-serif; font-size: 20px; line-height: 28px; letter-spacing: -0.015em; font-weight: 600; }
+.font-headline-sm { font-family: "Plus Jakarta Sans", sans-serif; font-size: 16px; line-height: 24px; letter-spacing: -0.01em; font-weight: 600; }
+
+.font-body-lg { font-family: "Inter", sans-serif; font-size: 16px; line-height: 26px; letter-spacing: -0.005em; font-weight: 400; }
+.font-body-md { font-family: "Inter", sans-serif; font-size: 14px; line-height: 22px; letter-spacing: 0em; font-weight: 400; }
+.font-body-sm { font-family: "Inter", sans-serif; font-size: 12px; line-height: 18px; letter-spacing: 0.01em; font-weight: 400; }
+
+.font-code-lg { font-family: "JetBrains Mono", monospace; font-size: 15px; line-height: 22px; letter-spacing: -0.02em; font-weight: 500; }
+.font-code-md { font-family: "JetBrains Mono", monospace; font-size: 13px; line-height: 18px; letter-spacing: -0.01em; font-weight: 500; }
+.font-label-md { font-family: "JetBrains Mono", monospace; font-size: 11px; line-height: 14px; letter-spacing: 0.08em; font-weight: 600; }
+.font-label-sm { font-family: "JetBrains Mono", monospace; font-size: 10px; line-height: 12px; letter-spacing: 0.1em; font-weight: 600; }
+
+.text-headline-xl { font-size: 36px; line-height: 44px; letter-spacing: -0.025em; }
+.text-headline-xl-mobile { font-size: 26px; line-height: 34px; letter-spacing: -0.02em; }
+.text-headline-lg { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; }
+.text-headline-lg-mobile { font-size: 24px; line-height: 32px; letter-spacing: -0.02em; }
+.text-headline-md { font-size: 20px; line-height: 28px; letter-spacing: -0.015em; }
+.text-headline-sm { font-size: 16px; line-height: 24px; letter-spacing: -0.01em; }
+.text-body-lg { font-size: 16px; line-height: 26px; }
+.text-body-md { font-size: 14px; line-height: 22px; }
+.text-body-sm { font-size: 12px; line-height: 18px; }
+.text-code-lg { font-size: 15px; line-height: 22px; }
+.text-code-md { font-size: 13px; line-height: 18px; }
+.text-label-md { font-size: 11px; line-height: 14px; letter-spacing: 0.08em; }
+.text-label-sm { font-size: 10px; line-height: 12px; letter-spacing: 0.1em; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(149, 142, 160, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(149, 142, 160, 0.4);
+}
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
