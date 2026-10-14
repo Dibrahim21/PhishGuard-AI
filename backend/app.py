@@ -570,7 +570,7 @@ def scan_url():
 
             "scan_id": scan_id,
 
-            "user_id": user["id"],
+            "user_id": None,
 
             "url": url,
 
@@ -821,4 +821,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         debug=debug
+
     )
