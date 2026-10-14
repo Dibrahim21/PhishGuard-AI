@@ -40,7 +40,11 @@ export default function Sidebar({
 
         if (isMounted) {
           setBackendOnline(
-            response.ok && data?.status === 'success'
+            response.ok && (
+              data?.status === 'ok' ||
+              data?.status === 'degraded' ||
+              data?.status === 'success'
+            )
           );
         }
       } catch (error) {

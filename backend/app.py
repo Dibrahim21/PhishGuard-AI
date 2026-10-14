@@ -80,51 +80,63 @@ CORS(
 # DATABASE INITIALIZATION
 # =============================================================================
 
-initialize_database()
+# =============================================================================
+# DATABASE INITIALIZATION  (non-fatal — app still starts if DB is unavailable)
+# =============================================================================
+
+_db_error: str = ""
+try:
+    initialize_database()
+except Exception as _e:
+    _db_error = str(_e)
+    print(f"[WARN] Database initialization failed: {_db_error}")
+    print("[WARN] The backend will start but database-dependent features are unavailable.")
 
 
 # =============================================================================
-# MODEL
+# MODEL  (non-fatal — app still starts if model fails to load)
 # =============================================================================
 
 MODEL_PATH = Path(__file__).resolve().parent / "phishing_model.pkl"
 
-# On Render, the model is not stored in GitHub because it is a large binary file.
-# Download it from Google Drive only when it is not already present.
-if not MODEL_PATH.exists():
-    import gdown
+_model_error: str = ""
+model = None
+FEATURE_COLUMNS: list = []
+model_data = None
 
-    drive_file_id = os.getenv("MODEL_DRIVE_FILE_ID", "1Fd1DUO_a3LA73mWa926_mHPs_TFz7lwC").strip()
-    if not drive_file_id:
+try:
+    # On Render, the model is not stored in GitHub (large binary).
+    # Download from Google Drive only when not already present.
+    if not MODEL_PATH.exists():
+        import gdown
+        drive_file_id = os.getenv("MODEL_DRIVE_FILE_ID", "1Fd1DUO_a3LA73mWa926_mHPs_TFz7lwC").strip()
+        if not drive_file_id:
+            raise RuntimeError("Model file missing and MODEL_DRIVE_FILE_ID not configured.")
+        print("ML model not found locally; downloading from Google Drive...")
+        downloaded_path = gdown.download(
+            id=drive_file_id,
+            output=str(MODEL_PATH),
+            quiet=False,
+        )
+        if not downloaded_path or not MODEL_PATH.exists():
+            raise RuntimeError("Failed to download phishing_model.pkl from Google Drive.")
+
+    if MODEL_PATH.stat().st_size < 1_000_000:
         raise RuntimeError(
-            "Model file is missing and MODEL_DRIVE_FILE_ID is not configured."
+            "phishing_model.pkl is unexpectedly small "
+            "(possible Google Drive permission page). "
+            "Ensure the file is shared as 'Anyone with the link'."
         )
 
-    print("ML model not found locally; downloading model from Google Drive...")
-    downloaded_path = gdown.download(
-        id=drive_file_id,
-        output=str(MODEL_PATH),
-        quiet=False,
-        
-    )
+    model_data = joblib.load(MODEL_PATH)
+    model = model_data["model"]
+    FEATURE_COLUMNS = model_data["features"]
+    print(f"[OK] ML model loaded — {len(FEATURE_COLUMNS)} features.")
 
-    if not downloaded_path or not MODEL_PATH.exists():
-        raise RuntimeError("Failed to download phishing_model.pkl from Google Drive.")
-
-# Catch a Google Drive HTML/permission page accidentally saved as the model.
-if MODEL_PATH.stat().st_size < 1_000_000:
-    raise RuntimeError(
-        "phishing_model.pkl is unexpectedly small. Check that its Google Drive file is accessible to anyone with the link."
-    )
-
-model_data = joblib.load(MODEL_PATH)
-
-model = model_data["model"]
-
-# IMPORTANT:
-# FEATURE_COLUMNS comes from the trained model file,
-# NOT from feature_extractor.py.
-FEATURE_COLUMNS = model_data["features"]
+except Exception as _e:
+    _model_error = str(_e)
+    print(f"[ERROR] ML model failed to load: {_model_error}")
+    print("[WARN] /api/scan will return 503 until the model is available.")
 
 
 # =============================================================================
@@ -402,10 +414,20 @@ def change_password():
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    return jsonify({
-        "status": "success",
-        "message": "PhishGuard AI backend is running."
-    }), 200
+    status = "ok" if (not _model_error and not _db_error) else "degraded"
+    body = {
+        "status": status,
+        "service": "PhishGuard AI",
+        "model_ready": model is not None,
+        "db_ready": not bool(_db_error),
+    }
+    if _model_error:
+        body["model_error"] = _model_error
+    if _db_error:
+        body["db_error"] = _db_error
+    # Always return 200 so the frontend health check doesn't mark the backend
+    # as offline just because the model is still downloading.
+    return jsonify(body), 200
 
 
 # =============================================================================
@@ -415,6 +437,14 @@ def health_check():
 
 @app.route("/api/scan", methods=["POST"])
 def scan_url():
+
+    # Guard: model must be loaded before scanning
+    if model is None:
+        return jsonify({
+            "status": "error",
+            "message": f"ML model is not available: {_model_error or 'unknown error'}. "
+                       "Please try again in a moment — the model may still be downloading."
+        }), 503
 
     data = request.get_json(silent=True) or {}
 
