@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
 import os
+import threading
 from dotenv import load_dotenv
 
 # Explicitly load .env from backend directory, fallback to cwd
@@ -77,66 +78,102 @@ CORS(
 
 
 # =============================================================================
-# DATABASE INITIALIZATION
-# =============================================================================
-
-# =============================================================================
-# DATABASE INITIALIZATION  (non-fatal — app still starts if DB is unavailable)
+# DATABASE INITIALIZATION (background: do not block Gunicorn startup)
 # =============================================================================
 
 _db_error: str = ""
-try:
-    initialize_database()
-except Exception as _e:
-    _db_error = str(_e)
-    print(f"[WARN] Database initialization failed: {_db_error}")
-    print("[WARN] The backend will start but database-dependent features are unavailable.")
+_db_ready: bool = False
+
+
+def _initialize_database_background():
+    global _db_error, _db_ready
+    try:
+        initialize_database()
+        _db_error = ""
+        _db_ready = True
+        print("[OK] Database initialization completed.")
+    except Exception as exc:
+        _db_error = str(exc)
+        _db_ready = False
+        print(f"[WARN] Database initialization failed: {_db_error}")
+        print("[WARN] Backend remains available; database-dependent features may be unavailable.")
+
+
+# Start database initialization asynchronously so HTTP routes can register
+# immediately even if PostgreSQL is slow or unavailable.
+threading.Thread(
+    target=_initialize_database_background,
+    name="database-initializer",
+    daemon=True,
+).start()
 
 
 # =============================================================================
-# MODEL  (non-fatal — app still starts if model fails to load)
+# MODEL (background: do not block Gunicorn startup while downloading/loading)
 # =============================================================================
 
 MODEL_PATH = Path(__file__).resolve().parent / "phishing_model.pkl"
 
 _model_error: str = ""
+_model_loading: bool = True
 model = None
 FEATURE_COLUMNS: list = []
 model_data = None
 
-try:
-    # On Render, the model is not stored in GitHub (large binary).
-    # Download from Google Drive only when not already present.
-    if not MODEL_PATH.exists():
-        import gdown
-        drive_file_id = os.getenv("MODEL_DRIVE_FILE_ID", "1Fd1DUO_a3LA73mWa926_mHPs_TFz7lwC").strip()
-        if not drive_file_id:
-            raise RuntimeError("Model file missing and MODEL_DRIVE_FILE_ID not configured.")
-        print("ML model not found locally; downloading from Google Drive...")
-        downloaded_path = gdown.download(
-            id=drive_file_id,
-            output=str(MODEL_PATH),
-            quiet=False,
-        )
-        if not downloaded_path or not MODEL_PATH.exists():
-            raise RuntimeError("Failed to download phishing_model.pkl from Google Drive.")
 
-    if MODEL_PATH.stat().st_size < 1_000_000:
-        raise RuntimeError(
-            "phishing_model.pkl is unexpectedly small "
-            "(possible Google Drive permission page). "
-            "Ensure the file is shared as 'Anyone with the link'."
-        )
+def _load_model_background():
+    global _model_error, _model_loading, model, FEATURE_COLUMNS, model_data
+    try:
+        if not MODEL_PATH.exists():
+            import gdown
 
-    model_data = joblib.load(MODEL_PATH)
-    model = model_data["model"]
-    FEATURE_COLUMNS = model_data["features"]
-    print(f"[OK] ML model loaded — {len(FEATURE_COLUMNS)} features.")
+            drive_file_id = os.getenv(
+                "MODEL_DRIVE_FILE_ID",
+                "1Fd1DUO_a3LA73mWa926_mHPs_TFz7lwC",
+            ).strip()
+            if not drive_file_id:
+                raise RuntimeError(
+                    "Model file missing and MODEL_DRIVE_FILE_ID not configured."
+                )
 
-except Exception as _e:
-    _model_error = str(_e)
-    print(f"[ERROR] ML model failed to load: {_model_error}")
-    print("[WARN] /api/scan will return 503 until the model is available.")
+            print("ML model not found locally; downloading from Google Drive...")
+            downloaded_path = gdown.download(
+                id=drive_file_id,
+                output=str(MODEL_PATH),
+                quiet=False,
+            )
+            if not downloaded_path or not MODEL_PATH.exists():
+                raise RuntimeError("Failed to download phishing_model.pkl from Google Drive.")
+
+        if MODEL_PATH.stat().st_size < 1_000_000:
+            raise RuntimeError(
+                "phishing_model.pkl is unexpectedly small "
+                "(possible Google Drive permission page). "
+                "Ensure the file is shared as 'Anyone with the link'."
+            )
+
+        loaded_data = joblib.load(MODEL_PATH)
+        loaded_model = loaded_data["model"]
+        loaded_features = loaded_data["features"]
+
+        model_data = loaded_data
+        model = loaded_model
+        FEATURE_COLUMNS = loaded_features
+        _model_error = ""
+        print(f"[OK] ML model loaded — {len(FEATURE_COLUMNS)} features.")
+    except Exception as exc:
+        _model_error = str(exc)
+        print(f"[ERROR] ML model failed to load: {_model_error}")
+        print("[WARN] /api/scan will return 503 until the model is available.")
+    finally:
+        _model_loading = False
+
+
+threading.Thread(
+    target=_load_model_background,
+    name="phishing-model-loader",
+    daemon=True,
+).start()
 
 
 # =============================================================================
@@ -419,7 +456,8 @@ def health_check():
         "status": status,
         "service": "PhishGuard AI",
         "model_ready": model is not None,
-        "db_ready": not bool(_db_error),
+        "db_ready": _db_ready,
+        "model_loading": _model_loading,
     }
     if _model_error:
         body["model_error"] = _model_error
@@ -440,10 +478,13 @@ def scan_url():
 
     # Guard: model must be loaded before scanning
     if model is None:
+        if _model_loading:
+            message = "ML model is still downloading or loading. Please retry shortly."
+        else:
+            message = f"ML model is not available: {_model_error or 'unknown error'}."
         return jsonify({
             "status": "error",
-            "message": f"ML model is not available: {_model_error or 'unknown error'}. "
-                       "Please try again in a moment — the model may still be downloading."
+            "message": message,
         }), 503
 
     data = request.get_json(silent=True) or {}
