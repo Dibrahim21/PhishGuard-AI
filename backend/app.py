@@ -405,15 +405,6 @@ def change_password():
 @app.route("/api/scan", methods=["POST"])
 def scan_url():
 
-    user = require_user()
-
-    if not user:
-
-        return jsonify({
-            "status": "error",
-            "message": "Authentication required."
-        }), 401
-
     data = request.get_json(silent=True) or {}
 
     url = str(
@@ -540,12 +531,13 @@ def scan_url():
         )
 
         # =====================================================================
-        # SAVE SCAN TO POSTGRESQL
+        # SAVE SCAN TO POSTGRESQL (best-effort; non-blocking)
         # =====================================================================
 
+        scan_id = None
         try:
             scan_id = save_scan(
-                user_id=user["id"],
+                user_id=None,
                 url=url,
                 verdict=verdict,
                 risk_score=final_risk_score,
@@ -564,12 +556,8 @@ def scan_url():
                 )
             )
         except Exception as db_err:
-            print("Database error in save_scan:", db_err)
-            return jsonify({
-                "status": "error",
-                "message": f"Scan completed but failed to save to database: {db_err}",
-                "error": str(db_err)
-            }), 500
+            # DB save failure is logged but does not block the scan response.
+            print("Database error in save_scan (non-fatal):", db_err)
 
 
         # =====================================================================
@@ -774,15 +762,6 @@ def clear_history():
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-
-    user = require_user()
-
-    if not user:
-
-        return jsonify({
-            "status": "error",
-            "message": "Authentication required."
-        }), 401
 
     data = request.get_json(
         silent=True

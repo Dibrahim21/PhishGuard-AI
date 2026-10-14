@@ -171,8 +171,8 @@ type BackendScanResponse = {
 
 import {
   API_ENDPOINTS,
-  getAuthHeaders,
 } from '../config/api';
+import { saveToLocalHistory } from '../utils/localStorage';
 
 export default function NeuralUrlScanner({
   initialUrl,
@@ -905,7 +905,9 @@ export default function NeuralUrlScanner({
           {
             method: 'POST',
 
-            headers: getAuthHeaders(true),
+            headers: {
+              'Content-Type': 'application/json',
+            },
 
             body:
               JSON.stringify({
@@ -960,10 +962,28 @@ export default function NeuralUrlScanner({
         result
       );
 
+      // Save to browser-local history (no account needed)
+      try {
+        const domainInfo = data.domain_info;
+        saveToLocalHistory({
+          url: data.url || target,
+          verdict: data.verdict || result.verdictLabel,
+          risk_score: data.risk_score ?? result.score,
+          phishing_probability: data.phishing_probability ?? 0,
+          legitimate_probability: data.legitimate_probability ?? 0,
+          domain:
+            domainInfo?.hostname ||
+            domainInfo?.registrable_domain ||
+            '',
+          scanned_at: new Date().toISOString(),
+        });
+      } catch (storageErr) {
+        console.warn('Could not save scan to local history:', storageErr);
+      }
+
       onShowToast(
         `Scan completed: ${result.score}/100 (${result.verdictLabel})`,
-        result.verdict ===
-        'malicious'
+        result.verdict === 'malicious'
       );
 
       onScanComplete?.();

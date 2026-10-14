@@ -9,7 +9,6 @@ import {
   Shield,
   Activity,
   CheckCircle2,
-  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -19,7 +18,6 @@ interface HeaderProps {
   onToggleRadar: () => void;
   onOpenMobileMenu: () => void;
   onQuickScanTrigger: () => void;
-  onLogout: () => void;
 }
 
 export default function Header({
@@ -29,7 +27,6 @@ export default function Header({
   onToggleRadar,
   onOpenMobileMenu,
   onQuickScanTrigger,
-  onLogout,
 }: HeaderProps) {
   const [searchVal, setSearchVal] = useState('');
 
@@ -210,35 +207,6 @@ export default function Header({
             />
           </button>
 
-          {/* LOGOUT */}
-          <button
-            type="button"
-            onClick={onLogout}
-            title="Logout"
-            className="
-              flex
-              items-center
-              gap-2
-              px-3
-              py-2
-              rounded-xl
-              bg-[#171a24]
-              border
-              border-[#262c3b]
-              text-zinc-400
-              hover:text-red-400
-              hover:border-red-500/30
-              hover:bg-red-500/10
-              transition-all
-              cursor-pointer
-            "
-          >
-            <LogOut className="w-4 h-4" />
-
-            <span className="hidden sm:inline text-xs font-semibold">
-              Logout
-            </span>
-          </button>
 
         </div>
       </div>

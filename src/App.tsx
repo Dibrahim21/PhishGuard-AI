@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import {
   NavTab,
@@ -15,94 +15,16 @@ import SentinelAiAssistant from './components/SentinelAiAssistant';
 import SecurityTipsView from './components/SecurityTipsView';
 import ConfigSettings from './components/ConfigSettings';
 import PlaybookModal from './components/PlaybookModal';
-import AuthScreen from './components/AuthScreen';
-import {
-  API_ENDPOINTS,
-  getAuthHeaders,
-  clearStoredAuth,
-  AUTH_TOKEN_KEY,
-  AUTH_USER_KEY,
-} from './config/api';
 
-interface AuthUser {
-  id: number;
-  email: string;
-}
 
 
 export default function App() {
   /* =========================
-      AUTH STATE
+      APP STATE
   ========================== */
-
-  const [authToken, setAuthToken] =
-    useState<string | null>(() =>
-      localStorage.getItem(AUTH_TOKEN_KEY)
-    );
-
-  const [authUser, setAuthUser] =
-    useState<AuthUser | null>(() => {
-      const savedUser =
-        localStorage.getItem(AUTH_USER_KEY);
-
-      if (!savedUser) {
-        return null;
-      }
-
-      try {
-        return JSON.parse(savedUser);
-      } catch {
-        return null;
-      }
-    });
 
   const [refreshKey, setRefreshKey] =
     useState<number>(0);
-
-  /*
-   * Verify session with /api/me on mount or token change
-   * Clears invalid/expired tokens so user is not trapped in 401 state
-   */
-  useEffect(() => {
-    if (!authToken) return;
-
-    let isMounted = true;
-
-    const verifySession = async () => {
-      try {
-        const response = await fetch(API_ENDPOINTS.me, {
-          headers: getAuthHeaders(),
-        });
-
-        if (!isMounted) return;
-
-        if (response.status === 401) {
-          console.warn('Current session token is invalid or expired. Prompting login.');
-          clearStoredAuth();
-          setAuthToken(null);
-          setAuthUser(null);
-        } else if (response.ok) {
-          const data = await response.json();
-          if (data?.user && isMounted) {
-            setAuthUser(data.user);
-            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-          }
-        }
-      } catch (err) {
-        console.warn('Backend reachability check warning:', err);
-      }
-    };
-
-    void verifySession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [authToken]);
-
-  /* =========================
-      APP STATE
-  ========================== */
 
   const [currentTab, setCurrentTab] =
     useState<NavTab>('dashboard');
@@ -148,58 +70,6 @@ export default function App() {
         pagerduty: false,
       },
     });
-
-  /* =========================
-      LOGIN
-  ========================== */
-
-  const handleLogin = (
-    token: string,
-    user: AuthUser
-  ) => {
-    localStorage.setItem(
-      AUTH_TOKEN_KEY,
-      token
-    );
-
-    localStorage.setItem(
-      AUTH_USER_KEY,
-      JSON.stringify(user)
-    );
-
-    setAuthToken(token);
-    setAuthUser(user);
-    setRefreshKey((k) => k + 1);
-  };
-
-  /* =========================
-      LOGOUT
-  ========================== */
-
-  const handleLogout = async () => {
-    try {
-      const headers = getAuthHeaders();
-      if (headers.Authorization) {
-        await fetch(
-          API_ENDPOINTS.logout,
-          {
-            method: 'POST',
-            headers,
-          }
-        );
-      }
-    } catch (error) {
-      console.error(
-        'Logout error:',
-        error
-      );
-    } finally {
-      clearStoredAuth();
-      setAuthToken(null);
-      setAuthUser(null);
-    }
-  };
-
 
   /* =========================
       TOAST
@@ -308,17 +178,7 @@ export default function App() {
     currentTab === 'settings' ||
     currentTab === 'config';
 
-  /* =========================
-      AUTH GATE
-  ========================== */
 
-  if (!authToken) {
-    return (
-      <AuthScreen
-        onLogin={handleLogin}
-      />
-    );
-  }
 
   /* =========================
       MAIN APP
@@ -416,7 +276,6 @@ export default function App() {
           onQuickScanTrigger={
             handleOpenScanner
           }
-          onLogout={handleLogout}
         />
 
         {/* PAGE CONTENT */}

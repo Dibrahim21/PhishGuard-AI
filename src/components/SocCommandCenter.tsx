@@ -1,22 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlaybookModule } from '../types';
 import { PLAYBOOK_MODULES } from '../data/mockData';
 import {
-  API_ENDPOINTS,
-  getAuthHeaders,
-} from '../config/api';
+  loadLocalHistory,
+  LocalScanRecord,
+} from '../utils/localStorage';
 
 interface SocCommandCenterProps {
   onScanUrl: (url: string) => void;
   onOpenPlaybook: (module: PlaybookModule) => void;
-}
-interface BackendScan {
-  id: number;
-  url: string;
-  verdict: string;
-  risk_score: number;
-  domain: string | null;
-  scanned_at: string;
 }
 
 interface ScanHistoryRecord {
@@ -44,9 +36,6 @@ const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
 
   const [isLoadingHistory, setIsLoadingHistory] =
     useState(false);
-
-  // Prevent overlapping history requests when the page mounts and regains focus.
-  const historyRequestInFlight = useRef(false);
 
   const [historyError, setHistoryError] =
     useState('');
@@ -96,107 +85,43 @@ const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
   };
 
   /*
-   * REAL DATABASE HISTORY
+   * BROWSER-LOCAL HISTORY
    *
-   * Data comes from:
-   * Flask -> PostgreSQL -> /api/history
+   * Data comes from: localStorage (phishguard_scan_history)
+   * Written by NeuralUrlScanner after each successful scan.
    */
-  const loadScanHistory = useCallback(async () => {
-    // Ignore duplicate calls while a request is already running.
-    if (historyRequestInFlight.current) return;
-    historyRequestInFlight.current = true;
-
+  const loadScanHistory = useCallback(() => {
     setIsLoadingHistory(true);
     setHistoryError('');
 
     try {
-      const response = await fetch(
-        API_ENDPOINTS.history,
-        {
-          headers: getAuthHeaders(),
-        }
-      );
+      const raw: LocalScanRecord[] = loadLocalHistory();
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error(
-            'Authentication required or session expired. Please log in again.'
-          );
-        }
-        throw new Error(
-          `History API returned HTTP ${response.status}`
+      const mapped: ScanHistoryRecord[] = raw
+        .map((scan) => ({
+          id: scan.id,
+          url: scan.url,
+          status: mapVerdict(scan.verdict),
+          risk: Math.round(Number(scan.risk_score ?? 0)),
+          time: formatTime(scan.scanned_at),
+          source: scan.domain || 'PhishGuard AI',
+          createdAt: scan.scanned_at,
+        }))
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime()
         );
-      }
-
-      const data = await response.json();
-
-      if (
-        data.status !== 'success' ||
-        !Array.isArray(data.scans)
-      ) {
-        throw new Error(
-          data.message ||
-            'Invalid response from history API'
-        );
-      }
-
-      const mapped: ScanHistoryRecord[] =
-        data.scans
-          .map((scan: BackendScan) => ({
-            id: `SCAN-${scan.id}`,
-
-            url: scan.url,
-
-            status: mapVerdict(
-              scan.verdict
-            ),
-
-            risk: Math.round(
-              Number(
-                scan.risk_score ?? 0
-              )
-            ),
-
-            time: formatTime(
-              scan.scanned_at
-            ),
-
-            source:
-              scan.domain ||
-              'PhishGuard AI',
-
-            createdAt:
-              scan.scanned_at,
-          }))
-          .sort(
-            (
-              a: ScanHistoryRecord,
-              b: ScanHistoryRecord
-            ) =>
-              new Date(
-                b.createdAt
-              ).getTime() -
-              new Date(
-                a.createdAt
-              ).getTime()
-          );
 
       setScanHistory(mapped);
     } catch (error) {
-      console.error(
-        'Dashboard history error:',
-        error
-      );
-
+      console.error('Dashboard history error:', error);
       setHistoryError(
         error instanceof Error
           ? error.message
           : 'Unable to load scan history.'
       );
-
-      // Keep the last successful records visible if a refresh fails.
     } finally {
-      historyRequestInFlight.current = false;
       setIsLoadingHistory(false);
     }
   }, []);
@@ -205,23 +130,12 @@ const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
    * Load database history
    */
   useEffect(() => {
-    void loadScanHistory();
+    loadScanHistory();
 
-    const handleFocus = () => {
-      void loadScanHistory();
-    };
-
-    window.addEventListener(
-      'focus',
-      handleFocus
-    );
-
-    return () => {
-      window.removeEventListener(
-        'focus',
-        handleFocus
-      );
-    };
+    // Reload when window regains focus (e.g. user returns from scanner tab)
+    const handleFocus = () => loadScanHistory();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [loadScanHistory]);
 
   /*

@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import {
   User,
-  Mail,
-  KeyRound,
-  LogOut,
   ShieldCheck,
   LockKeyhole,
   Globe2,
@@ -14,10 +11,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   ChevronDown,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { SystemConfig } from '../types';
+import React from 'react';
+import {
+  clearLocalHistory,
+  loadLocalHistory,
+} from '../utils/localStorage';
 
 interface ConfigSettingsProps {
   config: SystemConfig;
@@ -25,46 +25,15 @@ interface ConfigSettingsProps {
   onShowToast: (message: string, isAlert?: boolean) => void;
 }
 
-import {
-  API_ENDPOINTS,
-  getAuthHeaders,
-  clearStoredAuth,
-  AUTH_USER_KEY,
-} from '../config/api';
-
 export default function ConfigSettings({
   config,
   onUpdateConfig,
   onShowToast,
 }: ConfigSettingsProps) {
   const [openSection, setOpenSection] = useState<string>('account');
-
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const [changingPassword, setChangingPassword] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
 
-  const savedUser = (() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem(AUTH_USER_KEY) || 'null'
-      );
-    } catch {
-      return null;
-    }
-  })();
-
-  const email = savedUser?.email || 'Unknown account';
-
-  const token = () =>
-    localStorage.getItem('phishguard_token') || '';
+  const scanCount = loadLocalHistory().length;
 
   const toggleSection = (section: string) => {
     setOpenSection((previous) =>
@@ -72,123 +41,17 @@ export default function ConfigSettings({
     );
   };
 
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      onShowToast('Please fill all password fields.', true);
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      onShowToast(
-        'New password must be at least 6 characters.',
-        true
-      );
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      onShowToast('New passwords do not match.', true);
-      return;
-    }
-
-    setChangingPassword(true);
-
-    try {
-      const response = await fetch(
-        API_ENDPOINTS.changePassword,
-        {
-          method: 'POST',
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({
-            current_password: currentPassword,
-            new_password: newPassword,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || 'Unable to change password.'
-        );
-      }
-
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-
-      onShowToast(
-        'Password changed successfully.'
-      );
-    } catch (error: any) {
-      onShowToast(
-        error?.message || 'Unable to change password.',
-        true
-      );
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-
-    try {
-      const headers = getAuthHeaders();
-      if (headers.Authorization) {
-        await fetch(API_ENDPOINTS.logout, {
-          method: 'POST',
-          headers,
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      clearStoredAuth();
-
-      onShowToast('Logged out successfully.');
-
-      window.setTimeout(() => {
-        window.location.reload();
-      }, 250);
-    }
-  };
-
-  const handleClearHistory = async () => {
+  const handleClearHistory = () => {
     const confirmed = window.confirm(
       'Clear your entire scan history? This cannot be undone.'
     );
-
     if (!confirmed) return;
-
     setClearingHistory(true);
-
     try {
-      const response = await fetch(
-        API_ENDPOINTS.history,
-        {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || 'Unable to clear history.'
-        );
-      }
-
-      onShowToast(
-        'Your scan history has been cleared.'
-      );
+      clearLocalHistory();
+      onShowToast('Your scan history has been cleared.');
     } catch (error: any) {
-      onShowToast(
-        error?.message || 'Unable to clear history.',
-        true
-      );
+      onShowToast(error?.message || 'Unable to clear history.', true);
     } finally {
       setClearingHistory(false);
     }
@@ -300,126 +163,29 @@ export default function ConfigSettings({
         </div>
       </div>
 
-      {/* ACCOUNT */}
-      <Section id="account" title="Account" icon={User}>
+      {/* BROWSER PROFILE */}
+      <Section id="account" title="Browser Profile" icon={User}>
         <div className="pt-5 space-y-3">
-
           <div className="rounded-xl border border-[#252d40] bg-[#111827] p-4">
             <div className="flex items-center gap-3">
-              <Mail className="w-4 h-4 text-zinc-400" />
+              <User className="w-4 h-4 text-zinc-400" />
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">
-                  Email
-                </p>
-                <p className="text-sm text-white mt-1">
-                  {email}
-                </p>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Session</p>
+                <p className="text-sm text-white mt-1">Anonymous — No account required</p>
               </div>
             </div>
           </div>
 
           <div className="rounded-xl border border-[#252d40] bg-[#111827] p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <KeyRound className="w-4 h-4 text-zinc-400" />
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Change Password
-                </p>
-                <p className="text-xs text-zinc-500">
-                  Update your account password.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                {
-                  label: 'Current Password',
-                  value: currentPassword,
-                  setValue: setCurrentPassword,
-                  show: showCurrent,
-                  setShow: setShowCurrent,
-                },
-                {
-                  label: 'New Password',
-                  value: newPassword,
-                  setValue: setNewPassword,
-                  show: showNew,
-                  setShow: setShowNew,
-                },
-                {
-                  label: 'Confirm Password',
-                  value: confirmPassword,
-                  setValue: setConfirmPassword,
-                  show: showConfirm,
-                  setShow: setShowConfirm,
-                },
-              ].map((field) => (
-                <div key={field.label} className="relative">
-                  <label className="block text-[10px] text-zinc-500 mb-1.5">
-                    {field.label}
-                  </label>
-
-                  <input
-                    type={field.show ? 'text' : 'password'}
-                    value={field.value}
-                    onChange={(e) =>
-                      field.setValue(e.target.value)
-                    }
-                    className="w-full rounded-xl bg-[#0d121c] border border-[#2a3346] px-3 py-2.5 pr-10 text-xs text-white outline-none focus:border-purple-500"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      field.setShow(!field.show)
-                    }
-                    className="absolute right-3 bottom-2.5 text-zinc-500 hover:text-white"
-                  >
-                    {field.show ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleChangePassword}
-              disabled={changingPassword}
-              className="mt-4 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold transition"
-            >
-              {changingPassword
-                ? 'CHANGING...'
-                : 'CHANGE PASSWORD'}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="w-full flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3.5 text-left hover:bg-red-500/10 transition disabled:opacity-50"
-          >
             <div className="flex items-center gap-3">
-              <LogOut className="w-4 h-4 text-red-400" />
+              <Database className="w-4 h-4 text-zinc-400" />
               <div>
-                <p className="text-sm font-semibold text-red-300">
-                  Logout
-                </p>
-                <p className="text-xs text-red-300/50">
-                  End this session on this device.
-                </p>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Local Scan Records</p>
+                <p className="text-sm text-white mt-1">{scanCount} scan{scanCount !== 1 ? 's' : ''} stored in this browser</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">History is private to this browser only</p>
               </div>
             </div>
-
-            <span className="text-[10px] font-mono text-red-400">
-              {loggingOut ? '...' : 'SIGN OUT'}
-            </span>
-          </button>
+          </div>
         </div>
       </Section>
 
@@ -497,7 +263,7 @@ export default function ConfigSettings({
           <StatusRow
             icon={Bot}
             title="AI Assistant"
-            description="Authenticated chatbot requests are sent through the Flask backend."
+            description="Chatbot requests are sent anonymously through the Flask backend."
           />
 
           <div className="rounded-xl border border-[#252d40] bg-[#111827] p-4">

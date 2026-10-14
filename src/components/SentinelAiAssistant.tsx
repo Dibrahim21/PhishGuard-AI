@@ -28,7 +28,6 @@ interface ChatMessage {
 
 import {
   API_ENDPOINTS,
-  getAuthHeaders,
 } from '../config/api';
 
 const initialMessages: ChatMessage[] = [
@@ -94,7 +93,7 @@ export default function SentinelAiAssistant({
 
     const response = await fetch(API_ENDPOINTS.chat, {
       method: 'POST',
-      headers: getAuthHeaders(true),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: query,
         history,
@@ -144,7 +143,7 @@ export default function SentinelAiAssistant({
 
           const scanResponse = await fetch(API_ENDPOINTS.scan, {
             method: 'POST',
-            headers: getAuthHeaders(true),
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: normalizedUrl }),
           });
 
