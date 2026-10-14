@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlaybookModule } from '../types';
 import { PLAYBOOK_MODULES } from '../data/mockData';
+import {
+  API_ENDPOINTS,
+  getAuthHeaders,
+} from '../config/api';
 
 interface SocCommandCenterProps {
   onScanUrl: (url: string) => void;
   onOpenPlaybook: (module: PlaybookModule) => void;
 }
-
 interface BackendScan {
   id: number;
   url: string;
@@ -26,7 +29,6 @@ interface ScanHistoryRecord {
   createdAt: string;
 }
 
-const API_BASE = 'https://phishguard-ai-85s9.onrender.com/api';
 
 const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
   onScanUrl,
@@ -43,6 +45,9 @@ const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
   const [isLoadingHistory, setIsLoadingHistory] =
     useState(false);
 
+  // Prevent overlapping history requests when the page mounts and regains focus.
+  const historyRequestInFlight = useRef(false);
+
   const [historyError, setHistoryError] =
     useState('');
 
@@ -54,7 +59,7 @@ const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
   ): ScanHistoryRecord['status'] => {
     const value = String(verdict || '').toLowerCase();
 
-    if (value === 'phishing') {
+    if (value === 'phishing' || value === 'malicious') {
       return 'Phishing';
     }
 
@@ -94,27 +99,30 @@ const SocCommandCenter: React.FC<SocCommandCenterProps> = ({
    * REAL DATABASE HISTORY
    *
    * Data comes from:
-   * Flask -> SQLite -> /api/history
+   * Flask -> PostgreSQL -> /api/history
    */
   const loadScanHistory = useCallback(async () => {
+    // Ignore duplicate calls while a request is already running.
+    if (historyRequestInFlight.current) return;
+    historyRequestInFlight.current = true;
+
     setIsLoadingHistory(true);
     setHistoryError('');
 
     try {
-     const token =
-  localStorage.getItem('phishguard_token') || '';
-
-const response = await fetch(
-  `${API_BASE}/history`,
-  {
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        API_ENDPOINTS.history,
+        {
+          headers: getAuthHeaders(),
         }
-      : {},
-  }
-);
+      );
+
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            'Authentication required or session expired. Please log in again.'
+          );
+        }
         throw new Error(
           `History API returned HTTP ${response.status}`
         );
@@ -186,8 +194,9 @@ const response = await fetch(
           : 'Unable to load scan history.'
       );
 
-      setScanHistory([]);
+      // Keep the last successful records visible if a refresh fails.
     } finally {
+      historyRequestInFlight.current = false;
       setIsLoadingHistory(false);
     }
   }, []);
@@ -629,7 +638,7 @@ const response = await fetch(
               </div>
 
               <span className="rounded-full border border-[#293044] bg-[#0a0f18] px-3 py-1 text-[10px] font-semibold text-[#7d8597]">
-                SQLITE
+                POSTGRESQL
               </span>
 
             </div>
@@ -702,7 +711,7 @@ const response = await fetch(
                 'Domain Intelligence',
                 'Risk Engine',
                 'SSL Analyzer',
-                'SQLite Scan History',
+                'PostgreSQL Scan History',
               ].map((item) => (
                 <div
                   key={item}
@@ -745,7 +754,7 @@ const response = await fetch(
               </h2>
 
               <p className="mt-1 text-xs text-[#7d8597]">
-                Latest records from SQLite
+                Latest records from PostgreSQL
                 scan history.
               </p>
 

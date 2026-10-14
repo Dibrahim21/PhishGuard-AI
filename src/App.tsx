@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   NavTab,
@@ -16,13 +16,19 @@ import SecurityTipsView from './components/SecurityTipsView';
 import ConfigSettings from './components/ConfigSettings';
 import PlaybookModal from './components/PlaybookModal';
 import AuthScreen from './components/AuthScreen';
-
-const API_BASE = 'https://phishguard-ai-85s9.onrender.com';
+import {
+  API_ENDPOINTS,
+  getAuthHeaders,
+  clearStoredAuth,
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+} from './config/api';
 
 interface AuthUser {
   id: number;
   email: string;
 }
+
 
 export default function App() {
   /* =========================
@@ -31,13 +37,13 @@ export default function App() {
 
   const [authToken, setAuthToken] =
     useState<string | null>(() =>
-      localStorage.getItem('phishguard_token')
+      localStorage.getItem(AUTH_TOKEN_KEY)
     );
 
   const [authUser, setAuthUser] =
     useState<AuthUser | null>(() => {
       const savedUser =
-        localStorage.getItem('phishguard_user');
+        localStorage.getItem(AUTH_USER_KEY);
 
       if (!savedUser) {
         return null;
@@ -49,6 +55,50 @@ export default function App() {
         return null;
       }
     });
+
+  const [refreshKey, setRefreshKey] =
+    useState<number>(0);
+
+  /*
+   * Verify session with /api/me on mount or token change
+   * Clears invalid/expired tokens so user is not trapped in 401 state
+   */
+  useEffect(() => {
+    if (!authToken) return;
+
+    let isMounted = true;
+
+    const verifySession = async () => {
+      try {
+        const response = await fetch(API_ENDPOINTS.me, {
+          headers: getAuthHeaders(),
+        });
+
+        if (!isMounted) return;
+
+        if (response.status === 401) {
+          console.warn('Current session token is invalid or expired. Prompting login.');
+          clearStoredAuth();
+          setAuthToken(null);
+          setAuthUser(null);
+        } else if (response.ok) {
+          const data = await response.json();
+          if (data?.user && isMounted) {
+            setAuthUser(data.user);
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+          }
+        }
+      } catch (err) {
+        console.warn('Backend reachability check warning:', err);
+      }
+    };
+
+    void verifySession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authToken]);
 
   /* =========================
       APP STATE
@@ -108,17 +158,18 @@ export default function App() {
     user: AuthUser
   ) => {
     localStorage.setItem(
-      'phishguard_token',
+      AUTH_TOKEN_KEY,
       token
     );
 
     localStorage.setItem(
-      'phishguard_user',
+      AUTH_USER_KEY,
       JSON.stringify(user)
     );
 
     setAuthToken(token);
     setAuthUser(user);
+    setRefreshKey((k) => k + 1);
   };
 
   /* =========================
@@ -126,20 +177,14 @@ export default function App() {
   ========================== */
 
   const handleLogout = async () => {
-    const token =
-      localStorage.getItem(
-        'phishguard_token'
-      );
-
     try {
-      if (token) {
+      const headers = getAuthHeaders();
+      if (headers.Authorization) {
         await fetch(
-          `${API_BASE}/api/logout`,
+          API_ENDPOINTS.logout,
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers,
           }
         );
       }
@@ -148,19 +193,13 @@ export default function App() {
         'Logout error:',
         error
       );
+    } finally {
+      clearStoredAuth();
+      setAuthToken(null);
+      setAuthUser(null);
     }
-
-    localStorage.removeItem(
-      'phishguard_token'
-    );
-
-    localStorage.removeItem(
-      'phishguard_user'
-    );
-
-    setAuthToken(null);
-    setAuthUser(null);
   };
+
 
   /* =========================
       TOAST
@@ -387,16 +426,15 @@ export default function App() {
               DASHBOARD
           ========================== */}
 
-          {isDashboard && (
+          <div className={isDashboard ? 'block' : 'hidden'}>
             <SocCommandCenter
-  onScanUrl={
-    handleScanUrlFromExternal
-  }
-  onOpenPlaybook={(playbook) =>
-    setActivePlaybook(playbook)
-  }
-/>
-          )}
+              key={`dashboard-${refreshKey}`}
+              onScanUrl={handleScanUrlFromExternal}
+              onOpenPlaybook={(playbook) =>
+                setActivePlaybook(playbook)
+              }
+            />
+          </div>
 
           {/* =========================
               URL SCANNER
@@ -420,6 +458,9 @@ export default function App() {
                   handleTabChange('history')
                 }
                 onShowToast={showToast}
+                onScanComplete={() => {
+                  setRefreshKey((k) => k + 1);
+                }}
               />
             </div>
           )}
@@ -428,7 +469,7 @@ export default function App() {
               TELEMETRY HISTORY
           ========================== */}
 
-          {isHistory && (
+          <div className={isHistory ? 'block' : 'hidden'}>
             <div
               className="
                 w-full
@@ -441,13 +482,12 @@ export default function App() {
               "
             >
               <TelemetryHistory
+                key={`history-${refreshKey}`}
                 onShowToast={showToast}
-                onInspectUrl={
-                  handleScanUrlFromExternal
-                }
+                onInspectUrl={handleScanUrlFromExternal}
               />
             </div>
-          )}
+          </div>
 
           {/* =========================
               AI SECURITY ASSISTANT

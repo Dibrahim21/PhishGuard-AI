@@ -1,27 +1,40 @@
 import os
 import secrets
+from pathlib import Path
 
 import psycopg2
+from dotenv import load_dotenv
 from psycopg2 import IntegrityError
 from psycopg2.extras import RealDictCursor
 
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Explicitly load .env from backend directory, fallback to cwd
+_backend_env = Path(__file__).resolve().parent / ".env"
+if _backend_env.exists():
+    load_dotenv(dotenv_path=_backend_env)
+else:
+    load_dotenv()
 
 
 # =============================================================
 # DATABASE CONNECTION
 # =============================================================
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-
 def get_connection():
-    if not DATABASE_URL:
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        _env_file = Path(__file__).resolve().parent / ".env"
+        if _env_file.exists():
+            load_dotenv(dotenv_path=_env_file)
+            db_url = os.getenv("DATABASE_URL")
+
+    if not db_url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not configured."
         )
 
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(db_url)
 
 
 # =============================================================
@@ -448,6 +461,53 @@ def clear_scan_history(user_id):
         conn.commit()
 
         return deleted_count
+
+    finally:
+        conn.close()
+
+
+def change_user_password(user_id, current_password, new_password):
+    if not current_password or not new_password:
+        raise ValueError("Current and new passwords are required.")
+
+    if len(new_password) < 6:
+        raise ValueError("New password must be at least 6 characters.")
+
+    conn = get_connection()
+
+    try:
+        cursor = conn.cursor(
+            cursor_factory=RealDictCursor
+        )
+
+        cursor.execute("""
+            SELECT password_hash
+            FROM users
+            WHERE id = %s
+        """, (user_id,))
+
+        user = cursor.fetchone()
+
+        if not user or not check_password_hash(
+            user["password_hash"],
+            current_password
+        ):
+            raise ValueError("Current password is incorrect.")
+
+        new_hash = generate_password_hash(new_password)
+
+        cursor.execute("""
+            UPDATE users
+            SET password_hash = %s
+            WHERE id = %s
+        """, (
+            new_hash,
+            user_id
+        ))
+
+        conn.commit()
+
+        return True
 
     finally:
         conn.close()

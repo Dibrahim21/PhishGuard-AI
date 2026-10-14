@@ -9,6 +9,7 @@ interface NeuralUrlScannerProps {
     msg: string,
     isAlert?: boolean
   ) => void;
+  onScanComplete?: () => void;
 }
 
 type FindingSeverity =
@@ -168,22 +169,17 @@ type BackendScanResponse = {
   >;
 }
 
-const API_URL =
-  'https://phishguard-ai-85s9.onrender.com/api/scan';
-
-const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('phishguard_token') || '';
-
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
-};
+import {
+  API_ENDPOINTS,
+  getAuthHeaders,
+} from '../config/api';
 
 export default function NeuralUrlScanner({
   initialUrl,
   onNavigateToLogs,
   onNavigateToTips,
   onShowToast,
+  onScanComplete,
 }: NeuralUrlScannerProps) {
   const [urlInput, setUrlInput] =
     useState(initialUrl || '');
@@ -905,15 +901,11 @@ export default function NeuralUrlScanner({
     try {
       const response =
         await fetch(
-          API_URL,
+          API_ENDPOINTS.scan,
           {
             method: 'POST',
 
-            headers: {
-              'Content-Type':
-                'application/json',
-              ...getAuthHeaders(),
-            },
+            headers: getAuthHeaders(true),
 
             body:
               JSON.stringify({
@@ -973,6 +965,8 @@ export default function NeuralUrlScanner({
         result.verdict ===
         'malicious'
       );
+
+      onScanComplete?.();
 
     } catch (error) {
       console.error(
@@ -1743,8 +1737,8 @@ export default function NeuralUrlScanner({
 
             <span
               className={`material-symbols-outlined ${isAnalyzing
-                  ? 'animate-spin'
-                  : ''
+                ? 'animate-spin'
+                : ''
                 }`}
             >
               {isAnalyzing
@@ -2098,278 +2092,276 @@ export default function NeuralUrlScanner({
 
             </section>
 
-           {/* DETECTION REASONS */}
+            {/* DETECTION REASONS */}
 
-<section>
+            <section>
 
-  <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4">
 
-    <div>
+                <div>
 
-      <h2 className="text-base font-bold text-white">
-        Security Analysis
-      </h2>
+                  <h2 className="text-base font-bold text-white">
+                    Security Analysis
+                  </h2>
 
-      <p className="text-xs text-[#958ea0]">
-        Evidence and threat indicators identified during analysis
-      </p>
+                  <p className="text-xs text-[#958ea0]">
+                    Evidence and threat indicators identified during analysis
+                  </p>
 
-    </div>
+                </div>
 
-    <span className="text-xs text-[#958ea0]">
-      {analysis.backend?.reasons?.length ??
-        analysis.findings.length}{' '}
-      signals
-    </span>
-
-  </div>
-
-
-  {/* SECURITY EVIDENCE */}
-
-  {(() => {
-
-    const allReasons: string[] =
-      analysis.backend?.reasons?.length
-        ? analysis.backend.reasons
-        : analysis.findings.map(
-            (finding) =>
-              `${finding.title}: ${finding.description}`
-          );
-
-    const positiveKeywords = [
-      'low phishing probability',
-      'trusted domain',
-      'https is enabled',
-      'tld is commonly used',
-      'no phishing-related keywords',
-      'tls certificate is valid',
-      'certificate is valid',
-      'matches the hostname',
-    ];
-
-    const securityEvidence =
-      allReasons.filter((reason) =>
-        positiveKeywords.some(
-          (keyword) =>
-            reason.toLowerCase().includes(
-              keyword
-            )
-        )
-      );
-
-    const threatIndicators =
-      allReasons.filter(
-        (reason) =>
-          !positiveKeywords.some(
-            (keyword) =>
-              reason.toLowerCase().includes(
-                keyword
-              )
-          )
-      );
-
-
-    return (
-      <div className="space-y-6">
-
-
-        {/* POSITIVE SECURITY EVIDENCE */}
-
-        {securityEvidence.length > 0 && (
-
-          <div>
-
-            <div className="flex items-center gap-2 mb-3">
-
-              <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-
-                <span className="material-symbols-outlined text-[17px] text-[#4fdbc8]">
-                  verified
+                <span className="text-xs text-[#958ea0]">
+                  {analysis.backend?.reasons?.length ??
+                    analysis.findings.length}{' '}
+                  signals
                 </span>
 
               </div>
 
-              <div>
 
-                <h3 className="text-sm font-bold text-white">
-                  Security Evidence
-                </h3>
+              {/* SECURITY EVIDENCE */}
 
-                <p className="text-[10px] text-[#958ea0]">
-                  Positive indicators identified by the analysis engine
-                </p>
+              {(() => {
 
-              </div>
-
-            </div>
-
-
-            <div className="space-y-3">
-
-              {securityEvidence.map(
-                (
-                  reason,
-                  index
-                ) => (
-
-                  <div
-                    key={`evidence-${index}`}
-                    className="flex gap-4 p-4 rounded-xl bg-teal-950/20 border border-teal-500/20"
-                  >
-
-                    <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-teal-500/15 text-[#4fdbc8]">
-
-                      <span className="material-symbols-outlined">
-                        check_circle
-                      </span>
-
-                    </div>
-
-
-                    <div className="flex-1">
-
-                      <h4 className="text-sm font-semibold text-white">
-                        Verified Security Signal
-                      </h4>
-
-                      <p className="text-xs text-[#cbc3d7] mt-2">
-                        {reason}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          </div>
-
-        )}
-
-
-        {/* THREAT INDICATORS */}
-
-        {threatIndicators.length > 0 && (
-
-          <div>
-
-            <div className="flex items-center gap-2 mb-3">
-
-              <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-
-                <span className="material-symbols-outlined text-[17px] text-red-400">
-                  shield
-                </span>
-
-              </div>
-
-              <div>
-
-                <h3 className="text-sm font-bold text-white">
-                  Threat Indicators
-                </h3>
-
-                <p className="text-[10px] text-[#958ea0]">
-                  Suspicious characteristics identified during analysis
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <div className="space-y-3">
-
-              {threatIndicators.map(
-                (
-                  reason,
-                  index
-                ) => {
-
-                  const lower =
-                    reason.toLowerCase();
-
-                  const isHighRisk =
-                    lower.includes(
-                      'phishing'
-                    ) ||
-                    lower.includes(
-                      'impersonation'
-                    ) ||
-                    lower.includes(
-                      'malicious'
-                    ) ||
-                    lower.includes(
-                      'suspicious'
-                    ) ||
-                    lower.includes(
-                      '@'
+                const allReasons: string[] =
+                  analysis.backend?.reasons?.length
+                    ? analysis.backend.reasons
+                    : analysis.findings.map(
+                      (finding) =>
+                        `${finding.title}: ${finding.description}`
                     );
 
-                  return (
+                const positiveKeywords = [
+                  'low phishing probability',
+                  'trusted domain',
+                  'https is enabled',
+                  'tld is commonly used',
+                  'no phishing-related keywords',
+                  'tls certificate is valid',
+                  'certificate is valid',
+                  'matches the hostname',
+                ];
 
-                    <div
-                      key={`threat-${index}`}
-                      className={`flex gap-4 p-4 rounded-xl border ${
-                        isHighRisk
-                          ? 'bg-red-950/20 border-red-500/20'
-                          : 'bg-orange-950/20 border-orange-500/20'
-                      }`}
-                    >
-
-                      <div
-                        className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${
-                          isHighRisk
-                            ? 'bg-red-500/15 text-red-400'
-                            : 'bg-orange-500/15 text-orange-400'
-                        }`}
-                      >
-
-                        <span className="material-symbols-outlined">
-                          {isHighRisk
-                            ? 'gpp_maybe'
-                            : 'warning'}
-                        </span>
-
-                      </div>
-
-
-                      <div className="flex-1">
-
-                        <h4 className="text-sm font-semibold text-white">
-                          Threat Indicator
-                        </h4>
-
-                        <p className="text-xs text-[#cbc3d7] mt-2">
-                          {reason}
-                        </p>
-
-                      </div>
-
-                    </div>
-
+                const securityEvidence =
+                  allReasons.filter((reason) =>
+                    positiveKeywords.some(
+                      (keyword) =>
+                        reason.toLowerCase().includes(
+                          keyword
+                        )
+                    )
                   );
 
-                }
-              )}
+                const threatIndicators =
+                  allReasons.filter(
+                    (reason) =>
+                      !positiveKeywords.some(
+                        (keyword) =>
+                          reason.toLowerCase().includes(
+                            keyword
+                          )
+                      )
+                  );
 
-            </div>
 
-          </div>
-
-        )}
+                return (
+                  <div className="space-y-6">
 
 
-      </div>
-    );
+                    {/* POSITIVE SECURITY EVIDENCE */}
 
-  })()}
+                    {securityEvidence.length > 0 && (
 
-</section>
+                      <div>
+
+                        <div className="flex items-center gap-2 mb-3">
+
+                          <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+
+                            <span className="material-symbols-outlined text-[17px] text-[#4fdbc8]">
+                              verified
+                            </span>
+
+                          </div>
+
+                          <div>
+
+                            <h3 className="text-sm font-bold text-white">
+                              Security Evidence
+                            </h3>
+
+                            <p className="text-[10px] text-[#958ea0]">
+                              Positive indicators identified by the analysis engine
+                            </p>
+
+                          </div>
+
+                        </div>
+
+
+                        <div className="space-y-3">
+
+                          {securityEvidence.map(
+                            (
+                              reason,
+                              index
+                            ) => (
+
+                              <div
+                                key={`evidence-${index}`}
+                                className="flex gap-4 p-4 rounded-xl bg-teal-950/20 border border-teal-500/20"
+                              >
+
+                                <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-teal-500/15 text-[#4fdbc8]">
+
+                                  <span className="material-symbols-outlined">
+                                    check_circle
+                                  </span>
+
+                                </div>
+
+
+                                <div className="flex-1">
+
+                                  <h4 className="text-sm font-semibold text-white">
+                                    Verified Security Signal
+                                  </h4>
+
+                                  <p className="text-xs text-[#cbc3d7] mt-2">
+                                    {reason}
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+                            )
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+
+                    {/* THREAT INDICATORS */}
+
+                    {threatIndicators.length > 0 && (
+
+                      <div>
+
+                        <div className="flex items-center gap-2 mb-3">
+
+                          <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+
+                            <span className="material-symbols-outlined text-[17px] text-red-400">
+                              shield
+                            </span>
+
+                          </div>
+
+                          <div>
+
+                            <h3 className="text-sm font-bold text-white">
+                              Threat Indicators
+                            </h3>
+
+                            <p className="text-[10px] text-[#958ea0]">
+                              Suspicious characteristics identified during analysis
+                            </p>
+
+                          </div>
+
+                        </div>
+
+
+                        <div className="space-y-3">
+
+                          {threatIndicators.map(
+                            (
+                              reason,
+                              index
+                            ) => {
+
+                              const lower =
+                                reason.toLowerCase();
+
+                              const isHighRisk =
+                                lower.includes(
+                                  'phishing'
+                                ) ||
+                                lower.includes(
+                                  'impersonation'
+                                ) ||
+                                lower.includes(
+                                  'malicious'
+                                ) ||
+                                lower.includes(
+                                  'suspicious'
+                                ) ||
+                                lower.includes(
+                                  '@'
+                                );
+
+                              return (
+
+                                <div
+                                  key={`threat-${index}`}
+                                  className={`flex gap-4 p-4 rounded-xl border ${isHighRisk
+                                      ? 'bg-red-950/20 border-red-500/20'
+                                      : 'bg-orange-950/20 border-orange-500/20'
+                                    }`}
+                                >
+
+                                  <div
+                                    className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${isHighRisk
+                                        ? 'bg-red-500/15 text-red-400'
+                                        : 'bg-orange-500/15 text-orange-400'
+                                      }`}
+                                  >
+
+                                    <span className="material-symbols-outlined">
+                                      {isHighRisk
+                                        ? 'gpp_maybe'
+                                        : 'warning'}
+                                    </span>
+
+                                  </div>
+
+
+                                  <div className="flex-1">
+
+                                    <h4 className="text-sm font-semibold text-white">
+                                      Threat Indicator
+                                    </h4>
+
+                                    <p className="text-xs text-[#cbc3d7] mt-2">
+                                      {reason}
+                                    </p>
+
+                                  </div>
+
+                                </div>
+
+                              );
+
+                            }
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+
+                  </div>
+                );
+
+              })()}
+
+            </section>
 
             {/* URL FEATURE ANALYSIS */}
 
@@ -2603,8 +2595,8 @@ export default function NeuralUrlScanner({
                     handleQuarantine
                   }
                   className={`flex-1 h-11 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${quarantined
-                      ? 'bg-teal-500 text-[#062b28]'
-                      : 'bg-red-600 hover:bg-red-500 text-white'
+                    ? 'bg-teal-500 text-[#062b28]'
+                    : 'bg-red-600 hover:bg-red-500 text-white'
                     }`}
                 >
 

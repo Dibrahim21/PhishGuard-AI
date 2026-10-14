@@ -26,15 +26,10 @@ interface ChatMessage {
   timestamp: string;
 }
 
-const API_BASE = 'https://phishguard-ai-85s9.onrender.com';
-
-const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('phishguard_token') || '';
-
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
-};
+import {
+  API_ENDPOINTS,
+  getAuthHeaders,
+} from '../config/api';
 
 const initialMessages: ChatMessage[] = [
   {
@@ -97,12 +92,9 @@ export default function SentinelAiAssistant({
         content: msg.text,
       }));
 
-    const response = await fetch(`${API_BASE}/api/chat`, {
+    const response = await fetch(API_ENDPOINTS.chat, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
+      headers: getAuthHeaders(true),
       body: JSON.stringify({
         message: query,
         history,
@@ -150,12 +142,9 @@ export default function SentinelAiAssistant({
             ? detectedUrl
             : `https://${detectedUrl}`;
 
-          const scanResponse = await fetch(`${API_BASE}/api/scan`, {
+          const scanResponse = await fetch(API_ENDPOINTS.scan, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeaders(),
-            },
+            headers: getAuthHeaders(true),
             body: JSON.stringify({ url: normalizedUrl }),
           });
 

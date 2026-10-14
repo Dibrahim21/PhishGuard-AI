@@ -1,10 +1,13 @@
 import { FormEvent, useState } from 'react';
+import {
+  API_ENDPOINTS,
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+} from '../config/api';
 
 interface AuthScreenProps {
   onLogin: (token: string, user: { id: number; email: string }) => void;
 }
-
-const API_BASE = 'https://phishguard-ai-85s9.onrender.com';
 
 export default function AuthScreen({
   onLogin,
@@ -39,13 +42,13 @@ export default function AuthScreen({
     setLoading(true);
 
     try {
-      const endpoint =
+      const url =
         mode === 'login'
-          ? '/api/login'
-          : '/api/register';
+          ? API_ENDPOINTS.login
+          : API_ENDPOINTS.register;
 
       const response = await fetch(
-        `${API_BASE}${endpoint}`,
+        url,
         {
           method: 'POST',
           headers: {
@@ -93,13 +96,13 @@ export default function AuthScreen({
       }
 
       localStorage.setItem(
-        'phishguard_token',
+        AUTH_TOKEN_KEY,
         data.token
       );
 
       if (data.user) {
         localStorage.setItem(
-          'phishguard_user',
+          AUTH_USER_KEY,
           JSON.stringify(data.user)
         );
       }
@@ -108,6 +111,7 @@ export default function AuthScreen({
         data.token,
         data.user
       );
+
 
     } catch (err) {
       console.error(

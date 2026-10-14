@@ -9,6 +9,14 @@ Per-user scan history isolation
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Explicitly load .env from backend directory, fallback to cwd
+_backend_env = Path(__file__).resolve().parent / ".env"
+if _backend_env.exists():
+    load_dotenv(dotenv_path=_backend_env)
+else:
+    load_dotenv()
 
 import joblib
 
@@ -34,6 +42,7 @@ from database import (
     get_scan_history,
     delete_scan,
     clear_scan_history,
+    change_user_password,
 )
 
 from ai_assistant import answer_chat
@@ -48,8 +57,13 @@ app = Flask(__name__)
 CORS(
     app,
     resources={
-        r"/api/*": {
-            "origins": "*"
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ]
         }
     },
     methods=["GET", "POST", "DELETE", "OPTIONS"],
@@ -302,6 +316,56 @@ def logout():
 
 
 # =============================================================================
+# CHANGE PASSWORD
+# =============================================================================
+
+@app.route("/api/change-password", methods=["POST"])
+def change_password():
+    user = require_user()
+    if not user:
+        return jsonify({
+            "status": "error",
+            "message": "Authentication required."
+        }), 401
+
+    data = request.get_json(silent=True) or {}
+    current_password = str(data.get("current_password", ""))
+    new_password = str(data.get("new_password", ""))
+
+    if not current_password or not new_password:
+        return jsonify({
+            "status": "error",
+            "message": "Current and new passwords are required."
+        }), 400
+
+    if len(new_password) < 6:
+        return jsonify({
+            "status": "error",
+            "message": "Password must be at least 6 characters."
+        }), 400
+
+    try:
+        change_user_password(user["id"], current_password, new_password)
+        return jsonify({
+            "status": "success",
+            "message": "Password changed successfully."
+        }), 200
+    except ValueError as err:
+        return jsonify({
+            "status": "error",
+            "message": str(err)
+        }), 400
+    except Exception as err:
+        print("Change password error:", err)
+        return jsonify({
+            "status": "error",
+            "message": "Unable to change password.",
+            "error": str(err)
+        }), 500
+
+
+# =============================================================================
+
 # URL SCAN
 # =============================================================================
 
@@ -446,25 +510,34 @@ def scan_url():
         # SAVE SCAN TO POSTGRESQL
         # =====================================================================
 
-        scan_id = save_scan(
-            user_id=user["id"],
-            url=url,
-            verdict=verdict,
-            risk_score=final_risk_score,
-            phishing_probability=round(
-                phishing_prob * 100,
-                2
-            ),
-            legitimate_probability=round(
-                legitimate_prob * 100,
-                2
-            ),
-            domain=(
-                domain_intel.get("hostname")
-                or domain_intel.get("registrable_domain")
-                or ""
+        try:
+            scan_id = save_scan(
+                user_id=user["id"],
+                url=url,
+                verdict=verdict,
+                risk_score=final_risk_score,
+                phishing_probability=round(
+                    phishing_prob * 100,
+                    2
+                ),
+                legitimate_probability=round(
+                    legitimate_prob * 100,
+                    2
+                ),
+                domain=(
+                    domain_intel.get("hostname")
+                    or domain_intel.get("registrable_domain")
+                    or ""
+                )
             )
-        )
+        except Exception as db_err:
+            print("Database error in save_scan:", db_err)
+            return jsonify({
+                "status": "error",
+                "message": f"Scan completed but failed to save to database: {db_err}",
+                "error": str(db_err)
+            }), 500
+
 
         # =====================================================================
         # RESPONSE

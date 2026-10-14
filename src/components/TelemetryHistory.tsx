@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import {
+  API_ENDPOINTS,
+  getAuthHeaders,
+} from '../config/api';
 
 interface TelemetryHistoryProps {
   onInspectUrl: (url: string) => void;
@@ -27,16 +31,6 @@ interface BackendScan {
   scanned_at: string;
 }
 
-const API_BASE = 'https://phishguard-ai-85s9.onrender.com/api/history';
-
-const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('phishguard_token') || '';
-
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
-};
-
 export default function TelemetryHistory({
   onInspectUrl,
   onShowToast,
@@ -64,7 +58,7 @@ export default function TelemetryHistory({
 
   const mapVerdictToStatus = (verdict: string): 'Phishing' | 'Suspicious' | 'Safe' => {
     const v = (verdict || '').toLowerCase();
-    if (v === 'phishing') return 'Phishing';
+    if (v === 'phishing' || v === 'malicious') return 'Phishing';
     if (v === 'suspicious') return 'Suspicious';
     return 'Safe';
   };
@@ -74,11 +68,14 @@ export default function TelemetryHistory({
     setErrorMessage(null);
 
     try {
-      const response = await fetch(API_BASE, {
+      const response = await fetch(API_ENDPOINTS.history, {
         headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication required or session expired. Please log in again.');
+        }
         throw new Error(`Failed to load history (HTTP ${response.status})`);
       }
 
@@ -141,7 +138,7 @@ export default function TelemetryHistory({
   const clearHistory = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(API_BASE, {
+      const response = await fetch(API_ENDPOINTS.history, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -161,7 +158,7 @@ export default function TelemetryHistory({
 
   const deleteSingleRecord = async (scanId: number) => {
     try {
-      const response = await fetch(`${API_BASE}/${scanId}`, {
+      const response = await fetch(`${API_ENDPOINTS.history}/${scanId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -176,6 +173,7 @@ export default function TelemetryHistory({
       onShowToast(err.message || 'Failed to delete scan record', true);
     }
   };
+
 
   const getStatusStyle = (status: ScanRecord['status']) => {
     if (status === 'Phishing') {
@@ -221,8 +219,9 @@ export default function TelemetryHistory({
           </div>
 
           <p className="mt-1 text-sm text-[#8f96a8]">
-            Forensic audit logs and previously analyzed threat records from SQLite database
+            Forensic audit logs and previously analyzed threat records from PostgreSQL database
           </p>
+
         </div>
 
         <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Shield, Radar, History, Bot, Lightbulb, Settings, Sparkles, Activity, ChevronRight, X } from 'lucide-react';
 import { NavTab } from '../types';
+import { API_ENDPOINTS, getAuthHeaders } from '../config/api';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -29,60 +30,72 @@ export default function Sidebar({
   const [backendOnline, setBackendOnline] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkBackend = async () => {
       try {
-        const token =
-  localStorage.getItem('phishguard_token') || '';
-
-const response = await fetch(
-  'https://phishguard-ai-85s9.onrender.com/api/history',
-  {
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {},
-  }
-);
+        const response = await fetch(API_ENDPOINTS.health);
         const data = await response.json();
 
-        setBackendOnline(
-          response.ok && data?.status === 'success'
-        );
+        if (isMounted) {
+          setBackendOnline(
+            response.ok && data?.status === 'success'
+          );
+        }
       } catch (error) {
-        console.error('Backend health check failed:', error);
-        setBackendOnline(false);
+        if (isMounted) {
+          setBackendOnline(false);
+        }
       }
     };
 
-    checkBackend();
+    void checkBackend();
 
     const interval = window.setInterval(checkBackend, 30000);
-    return () => window.clearInterval(interval);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
-
   useEffect(() => {
+    let isMounted = true;
+
     const fetchScanCount = async () => {
       try {
-        const response = await fetch('https://phishguard-ai-85s9.onrender.com/api/history');
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) {
+          if (isMounted) setScanCount(0);
+          return;
+        }
+
+        const response = await fetch(API_ENDPOINTS.history, {
+          headers,
+        });
 
         if (!response.ok) {
-          throw new Error(`History API returned HTTP ${response.status}`);
+          if (isMounted) setScanCount(0);
+          return;
         }
 
         const data = await response.json();
 
-        if (data.status === 'success' && Array.isArray(data.scans)) {
+        if (data.status === 'success' && Array.isArray(data.scans) && isMounted) {
           setScanCount(data.scans.length);
         }
       } catch (error) {
-        console.error('Failed to load scan count:', error);
+        if (isMounted) setScanCount(0);
       }
     };
 
-    fetchScanCount();
-  }, []);
+    void fetchScanCount();
+    const interval = window.setInterval(fetchScanCount, 30000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [currentTab]);
+
 
   const navItems = [
     {

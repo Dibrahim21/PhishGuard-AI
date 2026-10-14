@@ -25,7 +25,12 @@ interface ConfigSettingsProps {
   onShowToast: (message: string, isAlert?: boolean) => void;
 }
 
-const API_BASE = 'https://phishguard-ai-85s9.onrender.com';
+import {
+  API_ENDPOINTS,
+  getAuthHeaders,
+  clearStoredAuth,
+  AUTH_USER_KEY,
+} from '../config/api';
 
 export default function ConfigSettings({
   config,
@@ -49,7 +54,7 @@ export default function ConfigSettings({
   const savedUser = (() => {
     try {
       return JSON.parse(
-        localStorage.getItem('phishguard_user') || 'null'
+        localStorage.getItem(AUTH_USER_KEY) || 'null'
       );
     } catch {
       return null;
@@ -90,13 +95,10 @@ export default function ConfigSettings({
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/change-password`,
+        API_ENDPOINTS.changePassword,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token()}`,
-          },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({
             current_password: currentPassword,
             new_password: newPassword,
@@ -133,21 +135,17 @@ export default function ConfigSettings({
     setLoggingOut(true);
 
     try {
-      const currentToken = token();
-
-      if (currentToken) {
-        await fetch(`${API_BASE}/api/logout`, {
+      const headers = getAuthHeaders();
+      if (headers.Authorization) {
+        await fetch(API_ENDPOINTS.logout, {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
+          headers,
         });
       }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.removeItem('phishguard_token');
-      localStorage.removeItem('phishguard_user');
+      clearStoredAuth();
 
       onShowToast('Logged out successfully.');
 
@@ -168,12 +166,10 @@ export default function ConfigSettings({
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/history`,
+        API_ENDPOINTS.history,
         {
           method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token()}`,
-          },
+          headers: getAuthHeaders(),
         }
       );
 
