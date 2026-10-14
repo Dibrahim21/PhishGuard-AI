@@ -9,6 +9,7 @@ Per-user scan history isolation
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
+import os
 from dotenv import load_dotenv
 
 # Explicitly load .env from backend directory, fallback to cwd
@@ -83,6 +84,34 @@ initialize_database()
 # =============================================================================
 
 MODEL_PATH = Path(__file__).resolve().parent / "phishing_model.pkl"
+
+# On Render, the model is not stored in GitHub because it is a large binary file.
+# Download it from Google Drive only when it is not already present.
+if not MODEL_PATH.exists():
+    import gdown
+
+    drive_file_id = os.getenv("MODEL_DRIVE_FILE_ID", "1Fd1DUO_a3LA73mWa926_mHPs_TFz7lwC").strip()
+    if not drive_file_id:
+        raise RuntimeError(
+            "Model file is missing and MODEL_DRIVE_FILE_ID is not configured."
+        )
+
+    print("ML model not found locally; downloading model from Google Drive...")
+    downloaded_path = gdown.download(
+        id=drive_file_id,
+        output=str(MODEL_PATH),
+        quiet=False,
+        
+    )
+
+    if not downloaded_path or not MODEL_PATH.exists():
+        raise RuntimeError("Failed to download phishing_model.pkl from Google Drive.")
+
+# Catch a Google Drive HTML/permission page accidentally saved as the model.
+if MODEL_PATH.stat().st_size < 1_000_000:
+    raise RuntimeError(
+        "phishing_model.pkl is unexpectedly small. Check that its Google Drive file is accessible to anyone with the link."
+    )
 
 model_data = joblib.load(MODEL_PATH)
 
