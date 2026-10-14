@@ -1000,10 +1000,8 @@ export default function NeuralUrlScanner({
           : 'Unable to connect to PhishGuard backend.';
 
       onShowToast(
-        message.includes(
-          'Failed to fetch'
-        )
-          ? 'Unable to connect to PhishGuard backend. Make sure Flask is running on port 5000.'
+        message.includes('Failed to fetch')
+          ? 'Unable to reach the PhishGuard backend. The server may be waking up — please try again in a moment.'
           : message,
         true
       );

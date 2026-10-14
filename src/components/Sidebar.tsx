@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Shield, Radar, History, Bot, Lightbulb, Settings, Sparkles, Activity, ChevronRight, X } from 'lucide-react';
 import { NavTab } from '../types';
-import { API_ENDPOINTS, getAuthHeaders } from '../config/api';
+import { API_ENDPOINTS } from '../config/api';
+import { loadLocalHistory } from '../utils/localStorage';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -59,41 +60,8 @@ export default function Sidebar({
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchScanCount = async () => {
-      try {
-        const headers = getAuthHeaders();
-        if (!headers.Authorization) {
-          if (isMounted) setScanCount(0);
-          return;
-        }
-
-        const response = await fetch(API_ENDPOINTS.history, {
-          headers,
-        });
-
-        if (!response.ok) {
-          if (isMounted) setScanCount(0);
-          return;
-        }
-
-        const data = await response.json();
-
-        if (data.status === 'success' && Array.isArray(data.scans) && isMounted) {
-          setScanCount(data.scans.length);
-        }
-      } catch (error) {
-        if (isMounted) setScanCount(0);
-      }
-    };
-
-    void fetchScanCount();
-    const interval = window.setInterval(fetchScanCount, 30000);
-    return () => {
-      isMounted = false;
-      window.clearInterval(interval);
-    };
+    // Read scan count directly from browser-local history (no network call needed)
+    setScanCount(loadLocalHistory().length);
   }, [currentTab]);
 
 

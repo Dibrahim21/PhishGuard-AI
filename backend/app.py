@@ -396,6 +396,17 @@ def change_password():
             "error": str(err)
         }), 500
 
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    return jsonify({
+        "status": "success",
+        "message": "PhishGuard AI backend is running."
+    }), 200
+
 
 # =============================================================================
 
