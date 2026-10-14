@@ -58,18 +58,21 @@ app = Flask(__name__)
 CORS(
     app,
     resources={
-        r".*": {
+        r"/*": {
             "origins": [
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "https://phish-guard-ai-topaz.vercel.app",
-            ]
+            ],
+            "methods": ["GET", "POST", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True,
+            "max_age": 86400,
         }
     },
-    methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    supports_credentials=True,
 )
 
 
@@ -832,9 +835,11 @@ def chat():
 # =============================================================================
 
 if __name__ == "__main__":
-
+    import sys
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True
+        host="0.0.0.0",
+        port=port,
+        debug=debug
     )

@@ -34,6 +34,14 @@ def get_connection():
             "DATABASE_URL environment variable is not configured."
         )
 
+    # Render sometimes provides "postgres://" but psycopg2 requires "postgresql://"
+    if db_url.startswith("postgres://"):
+        db_url = "postgresql://" + db_url[len("postgres://"):]
+
+    # Guard against the duplicated prefix: "postgresql:postgresql://..."
+    if db_url.startswith("postgresql:postgresql://"):
+        db_url = db_url[len("postgresql:"):]
+
     return psycopg2.connect(db_url)
 
 
