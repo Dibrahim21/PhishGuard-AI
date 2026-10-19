@@ -327,15 +327,20 @@ def _load_model_background():
 
 
 
-threading.Thread(
+# Load lazily inside the request-serving process. Starting this thread at module
+# import can run it in the Gunicorn master before workers fork, leaving workers
+# with stale model=None / _model_loading=True state.
+_model_load_lock = threading.Lock()
 
-    target=_load_model_background,
 
-    name="phishing-model-loader",
-
-    daemon=True,
-
-).start()
+def _ensure_model_loaded():
+    global _model_loading
+    if model is not None or _model_error:
+        return
+    with _model_load_lock:
+        if model is None and not _model_error:
+            _model_loading = True
+            _load_model_background()
 
 
 
@@ -890,14 +895,19 @@ def change_password():
 @app.route("/api/health", methods=["GET"])
 
 def health_check():
+    _ensure_model_loaded()
     print(
-    f"[DEBUG] Health PID={os.getpid()}, "
-    f"model_ready={model is not None}, "
-    f"model_loading={_model_loading}",
-    flush=True,
-)
+        f"[DEBUG] Health PID={os.getpid()}, "
+        f"model_ready={model is not None}, "
+        f"model_loading={_model_loading}",
+        flush=True,
+    )
 
-    status = "ok" if (not _model_error and not _db_error) else "degraded"
+    status = (
+        "ok"
+        if model is not None and not _model_loading and not _model_error and not _db_error
+        else "degraded"
+    )
 
     body = {
 
@@ -945,7 +955,7 @@ def health_check():
 
 def scan_url():
 
-
+    _ensure_model_loaded()
 
     # Guard: model must be loaded before scanning
 
