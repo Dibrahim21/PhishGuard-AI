@@ -23,6 +23,8 @@ from pathlib import Path
 import os
 
 import threading
+import time
+import queue
 
 from dotenv import load_dotenv
 
@@ -947,6 +949,57 @@ def health_check():
 
 # URL SCAN
 
+# Bounded execution for network-dependent intelligence stages.
+def _call_with_timeout(func, args=(), timeout=5, stage="stage", fallback=None):
+    result_queue = queue.Queue(maxsize=1)
+    def _runner():
+        try: result_queue.put((True, func(*args)))
+        except Exception as exc: result_queue.put((False, exc))
+    worker = threading.Thread(target=_runner, name=f"scan-{stage}", daemon=True)
+    started = time.monotonic()
+    worker.start(); worker.join(timeout)
+    elapsed = round(time.monotonic() - started, 2)
+    if worker.is_alive():
+        print(f"[SCAN] {stage} timed out after {elapsed}s; using fallback.", flush=True)
+        return fallback
+    try: ok, value = result_queue.get_nowait()
+    except queue.Empty:
+        print(f"[SCAN] {stage} returned no result after {elapsed}s; using fallback.", flush=True)
+        return fallback
+    if not ok:
+        print(f"[SCAN] {stage} failed after {elapsed}s: {value}", flush=True)
+        return fallback
+    print(f"[SCAN] {stage} completed in {elapsed}s.", flush=True)
+    return value
+
+def _fallback_domain_intelligence(url):
+    from urllib.parse import urlparse
+    parsed = urlparse(url); hostname = (parsed.hostname or "").lower()
+    labels = hostname.split("."); registrable = ".".join(labels[-2:]) if len(labels) >= 2 else hostname
+    return {"hostname": hostname, "registrable_domain": registrable, "subdomain": "",
+            "tld": labels[-1] if labels else "", "scheme": parsed.scheme.lower(),
+            "is_ip_address": False, "dns_resolved": False, "ip_address": None,
+            "is_known_legitimate": False, "allowlist_entry": None, "hostname_entropy": 0.0,
+            "suspicious_flags": ["intelligence_timeout"],
+            "brand_impersonation": {"detected": False, "brand": None, "confidence": 0,
+                "matched_text": None, "reason": None, "legitimate_domain": None,
+                "match_type": None, "has_context": False}}
+
+def _fallback_rdap(domain):
+    return {"available": False, "status": "unknown", "domain": domain, "registrar": None,
+            "registration_date": None, "expiration_date": None, "domain_age_days": None,
+            "days_until_expiry": None, "nameservers": [], "rdap_source": None,
+            "error": "RDAP lookup timed out or failed"}
+
+def _fallback_ssl(url):
+    from urllib.parse import urlparse
+    is_https = urlparse(url).scheme.lower() == "https"
+    return {"https_enabled": is_https, "certificate_available": False, "certificate_valid": False,
+            "hostname_match": False, "issuer": None, "subject": None, "valid_from": None,
+            "valid_until": None, "days_until_expiry": None, "status": "timeout_or_unavailable",
+            "error": "SSL analysis timed out or failed"}
+
+
 # =============================================================================
 
 
@@ -954,6 +1007,8 @@ def health_check():
 @app.route("/api/scan", methods=["POST"])
 
 def scan_url():
+    scan_started = time.monotonic()
+    print("[SCAN] Scan request received.", flush=True)
 
     _ensure_model_loaded()
 
@@ -1093,11 +1148,7 @@ def scan_url():
 
 
 
-        domain_intel = get_domain_intelligence(
-
-            url
-
-        )
+        domain_intel = _call_with_timeout(get_domain_intelligence, args=(url,), timeout=5, stage="domain_intelligence", fallback=_fallback_domain_intelligence(url))
 
 
 
@@ -1117,11 +1168,7 @@ def scan_url():
 
 
 
-        rdap_info = lookup_rdap(
-
-            registrable_domain
-
-        )
+        rdap_info = _call_with_timeout(lookup_rdap, args=(registrable_domain,), timeout=5, stage="rdap", fallback=_fallback_rdap(registrable_domain))
 
 
 
@@ -1133,11 +1180,7 @@ def scan_url():
 
 
 
-        ssl_analysis = analyze_ssl(
-
-            url
-
-        )
+        ssl_analysis = _call_with_timeout(analyze_ssl, args=(url,), timeout=4, stage="ssl_analysis", fallback=_fallback_ssl(url))
 
 
 
@@ -1295,7 +1338,7 @@ def scan_url():
 
         # =====================================================================
 
-
+        print(f"[SCAN] Completed full scan in {time.monotonic() - scan_started:.2f}s.", flush=True)
 
         return jsonify({
 
@@ -1415,7 +1458,7 @@ def scan_url():
 
 
 
-        print("Scan error:", error)
+        print(f"[SCAN] Failed after {time.monotonic() - scan_started:.2f}s: {error}", flush=True)
 
 
 
