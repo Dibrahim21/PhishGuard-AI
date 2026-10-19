@@ -56,6 +56,7 @@ from ai_assistant import answer_chat
 
 app = Flask(__name__)
 
+
 CORS(
     app,
     resources={
@@ -75,6 +76,7 @@ CORS(
     },
     supports_credentials=True,
 )
+
 
 
 # =============================================================================
