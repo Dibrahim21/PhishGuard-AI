@@ -257,7 +257,7 @@ def _load_model_background():
 
 
 
-            print("ML model not found locally; downloading from Google Drive...")
+            print(f"[MODEL] Local model missing; downloading from Google Drive. Path={MODEL_PATH}", flush=True)
 
             downloaded_path = gdown.download(
 
@@ -291,7 +291,9 @@ def _load_model_background():
 
         
         # Load only after MODEL_PATH has been defined and the file is available.
-        loaded_data = joblib.load(MODEL_PATH)
+        print("[MODEL] Starting joblib.load (mmap_mode='r')...", flush=True)
+        loaded_data = joblib.load(MODEL_PATH, mmap_mode="r")
+        print("[MODEL] joblib.load completed.", flush=True)
         loaded_model = loaded_data["model"]
         loaded_features = loaded_data["features"]
 
@@ -305,15 +307,15 @@ def _load_model_background():
 
         _model_error = ""
 
-        print(f"[OK] ML model loaded — {len(FEATURE_COLUMNS)} features.")
+        print(f"[OK] ML model loaded — {len(FEATURE_COLUMNS)} features.", flush=True)
 
     except Exception as exc:
 
         _model_error = str(exc)
 
-        print(f"[ERROR] ML model failed to load: {_model_error}")
+        print(f"[ERROR] ML model failed to load: {_model_error}", flush=True)
 
-        print("[WARN] /api/scan will return 503 until the model is available.")
+        print("[WARN] /api/scan will return 503 until the model is available.", flush=True)
 
     finally:
 
