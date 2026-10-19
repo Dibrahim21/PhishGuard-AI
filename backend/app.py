@@ -231,6 +231,8 @@ def _load_model_background():
 
     global _model_error, _model_loading, model, FEATURE_COLUMNS, model_data
 
+    print(f"[DEBUG] Model loader started. PID={os.getpid()}", flush=True)
+
     try:
 
         if not MODEL_PATH.exists():
@@ -888,6 +890,12 @@ def change_password():
 @app.route("/api/health", methods=["GET"])
 
 def health_check():
+    print(
+    f"[DEBUG] Health PID={os.getpid()}, "
+    f"model_ready={model is not None}, "
+    f"model_loading={_model_loading}",
+    flush=True,
+)
 
     status = "ok" if (not _model_error and not _db_error) else "degraded"
 
