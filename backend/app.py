@@ -139,7 +139,6 @@ CORS(
 
 
 
-
 # =============================================================================
 
 # DATABASE INITIALIZATION (background: do not block Gunicorn startup)
@@ -290,10 +289,10 @@ def _load_model_background():
 
 
 
+        
+        # Load only after MODEL_PATH has been defined and the file is available.
         loaded_data = joblib.load(MODEL_PATH)
         loaded_model = loaded_data["model"]
-        loaded_features = loaded_data["features"]
-
         loaded_features = loaded_data["features"]
 
 
