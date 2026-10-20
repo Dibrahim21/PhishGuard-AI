@@ -21,6 +21,9 @@ from flask_cors import CORS
 from pathlib import Path
 
 import os
+import socket
+import re
+from urllib.parse import urlparse
 
 import threading
 import time
@@ -1060,11 +1063,77 @@ def scan_url():
 
 
 
-    if not url.startswith(("http://", "https://")):
+    # Normalize and validate the submitted URL before feature extraction.
+    # A bare domain such as "google.com" is accepted and normalized to HTTPS.
+    # Plain text such as "abc", "hello world", or "12345" is rejected.
+    if any(char.isspace() for char in url) or any(ord(char) < 32 for char in url):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid URL. Enter a valid website address, such as https://www.google.com."
+        }), 400
 
+    if not re.match(r"^https?://", url, re.IGNORECASE):
         url = "https://" + url
 
+    try:
+        parsed_url = urlparse(url)
+        hostname = parsed_url.hostname
 
+        # Accessing .port can raise ValueError for malformed ports.
+        _ = parsed_url.port
+
+        if (
+            parsed_url.scheme.lower() not in ("http", "https")
+            or not hostname
+            or len(hostname) > 253
+            or "." not in hostname
+            or hostname.startswith(".")
+            or hostname.endswith(".")
+            or ".." in hostname
+        ):
+            raise ValueError("Invalid hostname")
+
+        # Validate each hostname label (supports ordinary ASCII domain names
+        # and IPv4-style dotted hosts).
+        hostname_labels = hostname.split(".")
+        if any(
+            not label
+            or len(label) > 63
+            or label.startswith("-")
+            or label.endswith("-")
+            or not re.fullmatch(r"[A-Za-z0-9-]+", label)
+            for label in hostname_labels
+        ):
+            raise ValueError("Invalid hostname")
+
+    except (ValueError, UnicodeError):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid URL. Enter a valid domain, such as https://www.google.com."
+        }), 400
+
+    # DNS preflight: reject domains that do not resolve before ML analysis.
+    # DNS failure is not treated as proof of phishing.
+    try:
+        socket.getaddrinfo(hostname, None)
+    except (socket.gaierror, UnicodeError):
+        return jsonify({
+            "status": "error",
+            "message": (
+                "Domain could not be found or resolved. "
+                "Check the spelling or try again later."
+            ),
+            "code": "DOMAIN_UNRESOLVED"
+        }), 400
+    except OSError:
+        return jsonify({
+            "status": "error",
+            "message": (
+                "Unable to verify this domain because DNS lookup failed. "
+                "Please try again later."
+            ),
+            "code": "DNS_LOOKUP_FAILED"
+        }), 503
 
     try:
 

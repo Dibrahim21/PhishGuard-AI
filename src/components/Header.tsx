@@ -4,11 +4,7 @@ import {
   Menu,
   Search,
   Radar,
-  Bell,
-  Sparkles,
-  Shield,
-  Activity,
-  CheckCircle2,
+  User,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -146,7 +142,7 @@ export default function Header({
         </form>
 
         {/* Right: Actions & Indicators */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
 
           {/* Scan URL Quick Action Button */}
           <button
@@ -185,26 +181,16 @@ export default function Header({
             </span>
           </button>
 
-          {/* Notifications / Live Alert indicator */}
-          <div className="relative p-2 rounded-xl bg-[#171a24] border border-[#262c3b] text-zinc-300 hover:text-white cursor-pointer transition-colors">
-            <Bell className="w-4 h-4" />
-
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          </div>
-
-          {/* User Profile Avatar */}
+          {/* User Profile / Account Settings */}
           <button
             onClick={() =>
               onTabChange('settings')
             }
-            className="w-9 h-9 rounded-xl overflow-hidden ring-1 ring-[#262c3b] hover:ring-purple-500/50 transition-all cursor-pointer shrink-0"
-            title="Account & SOC Settings"
+            aria-label="User Profile & Settings"
+            className="w-9 h-9 rounded-xl bg-[#171a24] border border-[#262c3b] flex items-center justify-center text-zinc-300 hover:text-white hover:border-purple-500/50 hover:bg-[#1c2130] transition-all cursor-pointer shrink-0"
+            title="User Profile & Settings"
           >
-            <img
-              alt="SOC Analyst"
-              className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNSv6oaHv0MziUPe8MVIS_tsNFP_7UlGT9eJF5gQ3eiYqc_qx-AhCyzf1SpkhgCfvN5_nbyv_DWRvbWiDsy8IlKCfoPB-LMuYN1yT3AaHX8nuGwoySiPpJd9lFdyx-zjp1ABUCv8HhLUn36sBoXXBu6HgXY0p6luiXXXhOXGig1x-sRFbFngm1w8fvaqNDh_j3KttMqgy1eRFI6QPi3_XAZHazfHkVq8hcGA7nzOoSwXxZG0xuW62oqA"
-            />
+            <User className="w-4 h-4" />
           </button>
 
 
